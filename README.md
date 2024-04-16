@@ -4,6 +4,7 @@ https://us.etrade.com/etx/sp/stockplan#/myAccount/gainsLosses
 Hämta växelkurs från:
 https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/valutakurser-till-deklarationen/
 
+```
 python k4.py \
   --org-nummer <person nummer> \
   --fullt-namn '...' \
@@ -14,3 +15,4 @@ python k4.py \
   --epost ... \
   --valutakurs '<växelkurs>' \
   --trades gains_loss_2023.xlsx
+```
