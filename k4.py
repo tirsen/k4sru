@@ -76,7 +76,7 @@ def main():
   with open("BLANKETTER.SRU", mode="w") as outfile:
     chunk_counter = 1
     for chunk in chunk_list(trades, SALES_PER_PAGE):
-      counter = 31
+      counter = 10
       outfile.write("#BLANKETT K4-" + args.year + "P4\n")
       outfile.write("#IDENTITET " + args.org_nummer + " " + now.strftime('%Y%m%d %H%M%S') + "\n")
       outfile.write("#NAMN " + args.fullt_namn + "\n")
