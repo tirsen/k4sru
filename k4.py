@@ -5,6 +5,7 @@ from datetime import datetime
 from dataclasses import dataclass
 
 SALES_PER_PAGE = 7
+RELEVANT_ORDER_TYPE = "Sell Restricted Stock"
 
 parser = argparse.ArgumentParser(prog="k4", description='Generate K4 SRU files.')
 parser.add_argument('--org-nummer', required=True,
@@ -34,6 +35,7 @@ class Trade:
   forsaljsningspris: float
   omkostnadsbelopp: float
   gainloss: float
+  ordertype: str
 
   def vinst(self):
     return self.gainloss if self.gainloss > 0 else 0
@@ -50,7 +52,8 @@ def parse_trades(file):
                   beteckning=row[1].value,
                   omkostnadsbelopp=row[10].value,
                   forsaljsningspris=row[13].value,
-                  gainloss=row[18].value)
+                  gainloss=row[18].value,
+                  ordertype=row[28].value if len(row) > 28 else RELEVANT_ORDER_TYPE)
 
 
 def main():
@@ -70,7 +73,7 @@ def main():
     outfile.write("#EMAIL " + args.epost + "\n")
     outfile.write("#MEDIELEV_SLUT\n")
 
-  trades = list(parse_trades(args.trades))
+  trades = [trade for trade in list(parse_trades(args.trades)) if trade.ordertype == RELEVANT_ORDER_TYPE]
   now = datetime.now()
 
   with open("BLANKETTER.SRU", mode="w") as outfile:
