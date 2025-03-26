@@ -5,7 +5,7 @@ from datetime import datetime
 from dataclasses import dataclass
 
 SALES_PER_PAGE = 7
-RELEVANT_ORDER_TYPES = ["Sell Restricted Stock", "Sell ESPP"]
+BLACKLISTED_ORDER_TYPES = ["RS STC"]
 
 # Export as yearly/daily USD/SEK as xlsx from
 # https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/sok-rantor-och-valutakurser
@@ -65,7 +65,7 @@ def parse_trades(file):
                   omkostnadsbelopp=row[10].value,
                   forsaljsningspris=row[13].value,
                   gainloss=row[18].value,
-                  ordertype=row[28].value if len(row) > 28 else RELEVANT_ORDER_TYPES[0],
+                  ordertype=row[28].value if len(row) > 28 else None,
                   date=datetime.strptime(row[12].value, "%m/%d/%Y"))
 
 
@@ -115,7 +115,7 @@ def main():
     outfile.write("#EMAIL " + args.epost + "\n")
     outfile.write("#MEDIELEV_SLUT\n")
 
-  trades = [trade for trade in list(parse_trades(args.trades)) if trade.ordertype in RELEVANT_ORDER_TYPES]
+  trades = [trade for trade in list(parse_trades(args.trades)) if trade.ordertype not in BLACKLISTED_ORDER_TYPES]
   now = datetime.now()
 
   total_vinst_sek = 0;
