@@ -5,7 +5,7 @@ from datetime import datetime
 from dataclasses import dataclass
 
 SALES_PER_PAGE = 7
-BLACKLISTED_ORDER_TYPES = ["RS STC"]
+EXCLUDE_ORDER_TYPES = ["RS STC"]
 
 # Export as yearly/daily USD/SEK as xlsx from
 # https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/sok-rantor-och-valutakurser
@@ -115,7 +115,7 @@ def main():
     outfile.write("#EMAIL " + args.epost + "\n")
     outfile.write("#MEDIELEV_SLUT\n")
 
-  trades = [trade for trade in list(parse_trades(args.trades)) if trade.ordertype not in BLACKLISTED_ORDER_TYPES]
+  trades = [trade for trade in list(parse_trades(args.trades)) if trade.ordertype not in EXCLUDE_ORDER_TYPES]
   now = datetime.now()
 
   total_vinst_sek = 0;
