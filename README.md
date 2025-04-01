@@ -1,8 +1,8 @@
 Genererar K4 SRU från XLSX nedladdad från Etrade:
 https://us.etrade.com/etx/sp/stockplan#/myAccount/gainsLosses
 
-Hämta växelkurs från:
-https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/valutakurser-till-deklarationen/
+Ladda ner årlig/daglig USD/SEK som xlsx från
+https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/sok-rantor-och-valutakurser
 
 Detta projekt använder [Hermit](https://github.com/cashapp/hermit). Sätt upp så här:
 ```
@@ -20,6 +20,8 @@ python k4.py \
   --postnummer '...' \
   --postort '...' \
   --epost ... \
-  --valutakurs '<växelkurs>' \
-  --trades gains_loss_2023.xlsx
+  --trades gains_loss_2023.xlsx \
+  --yearly-rate-file yearly_rates.xlsx  # Använd detta för årliga kurser
+  # ELLER
+  --daily-rate-file daily_rates.xlsx    # Använd detta för dagliga kurser
 ```

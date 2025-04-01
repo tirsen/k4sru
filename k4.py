@@ -5,6 +5,13 @@ from datetime import datetime
 from dataclasses import dataclass
 
 SALES_PER_PAGE = 7
+EXCLUDE_ORDER_TYPES = ["RS STC"]
+
+# Export as yearly/daily USD/SEK as xlsx from
+# https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/sok-rantor-och-valutakurser
+
+# It is allowed to use either the daily exchange rate or the yearly exchange rate,
+# as long as it is consistent for all trades.
 
 parser = argparse.ArgumentParser(prog="k4", description='Generate K4 SRU files.')
 parser.add_argument('--org-nummer', required=True,
@@ -21,10 +28,12 @@ parser.add_argument('--epost', required=True,
                     help='epost')
 parser.add_argument('--year', required=True,
                     help='vilket räkenskapsår')
-parser.add_argument('--valutakurs', default=1, type=float,
-                    help='om indatat är i annan valutakurs, se https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/valutakurser-till-deklarationen/')
 parser.add_argument('--trades', required=True,
                     help='affärer i xlsx')
+parser.add_argument('--yearly-rate-file',
+                    help='path to yearly exchange rate xlsx file')
+parser.add_argument('--daily-rate-file',
+                    help='path to daily exchange rate xlsx file')
 
 
 @dataclass
@@ -34,6 +43,8 @@ class Trade:
   forsaljsningspris: float
   omkostnadsbelopp: float
   gainloss: float
+  ordertype: str
+  date: datetime
 
   def vinst(self):
     return self.gainloss if self.gainloss > 0 else 0
@@ -50,12 +61,56 @@ def parse_trades(file):
                   beteckning=row[1].value,
                   omkostnadsbelopp=row[10].value,
                   forsaljsningspris=row[13].value,
-                  gainloss=row[18].value)
+                  gainloss=row[18].value,
+                  ordertype=row[28].value if len(row) > 28 else None,
+                  date=datetime.strptime(row[12].value, "%m/%d/%Y"))
 
+
+def read_yearly_exchange_rate(year, yearly_rate_file):
+  workbook = openpyxl.load_workbook(yearly_rate_file)
+  sheet = workbook.active
+  for row in sheet.rows:
+    if str(row[0].value) == str(year):
+      return float(row[1].value)
+
+  raise ValueError(f"No exchange rate found for year {year}")
+
+def read_daily_exchange_rate(date, daily_rate_file):
+  workbook = openpyxl.load_workbook(daily_rate_file)
+  sheet = workbook.active
+  exchange_rates = {}
+  for row in sheet.rows:
+    try:
+      exchange_date = datetime.strptime(str(row[0].value), "%Y-%m-%d")
+    except ValueError:
+      continue
+    exchange_rate = float(row[1].value)
+    exchange_rates[exchange_date] = exchange_rate
+
+  if not exchange_rates:
+    raise ValueError(f"Error reading {daily_rate_file}: This appears to be a yearly exchange rate file. "
+                    f"Please use --yearly-rate-file instead of --daily-rate-file")
+
+  if date in exchange_rates:
+    return exchange_rates[date]
+
+  closest_date = min(exchange_rates.keys(), key=lambda d: abs(d - date))
+  if abs((closest_date - date).days) > 7:
+    raise ValueError(f"No exchange rate found within seven days of {date}")
+  return exchange_rates[closest_date]
 
 def main():
   # https://www.skatteverket.se/foretag/etjansterochblanketter/blanketterbroschyrer/broschyrer/info/269.4.39f16f103821c58f680007305.html
   args = parser.parse_args()
+
+  # Determine rate type based on provided files
+  if args.yearly_rate_file and args.daily_rate_file:
+    parser.error("Please provide either --yearly-rate-file or --daily-rate-file, not both")
+  if not args.yearly_rate_file and not args.daily_rate_file:
+    parser.error("Please provide either --yearly-rate-file or --daily-rate-file")
+
+  use_yearly_rate = bool(args.yearly_rate_file)
+
   with open("INFO.SRU", mode="w") as outfile:
     outfile.write("#DATABESKRIVNING_START\n")
     outfile.write("#PRODUKT SRU\n")
@@ -70,8 +125,11 @@ def main():
     outfile.write("#EMAIL " + args.epost + "\n")
     outfile.write("#MEDIELEV_SLUT\n")
 
-  trades = list(parse_trades(args.trades))
+  trades = [trade for trade in list(parse_trades(args.trades)) if trade.ordertype not in EXCLUDE_ORDER_TYPES]
   now = datetime.now()
+
+  total_vinst_sek = 0;
+  total_forlust_sek = 0;
 
   with open("BLANKETTER.SRU", mode="w") as outfile:
     chunk_counter = 1
@@ -83,17 +141,34 @@ def main():
       for trade in chunk:
         if counter - 31 > SALES_PER_PAGE:
           raise ValueError("Can only have %d sales per page" % SALES_PER_PAGE)
+
+        if use_yearly_rate:
+          exchange_rate = read_yearly_exchange_rate(args.year, args.yearly_rate_file)
+        else:
+          exchange_rate = read_daily_exchange_rate(trade.date, args.daily_rate_file)
+
+        vinst_sek = trade.vinst() * exchange_rate
+        forlust_sek = trade.forlust() * exchange_rate
+        total_vinst_sek += vinst_sek
+        total_forlust_sek += forlust_sek
+
         outfile.write("#UPPGIFT 3" + str(counter) + "0 " + str(trade.antal) + "\n")
         outfile.write("#UPPGIFT 3" + str(counter) + "1 " + trade.beteckning + "\n")
-        outfile.write("#UPPGIFT 3" + str(counter) + "2 " + str(round(trade.forsaljsningspris * args.valutakurs)) + "\n")
-        outfile.write("#UPPGIFT 3" + str(counter) + "3 " + str(round(trade.omkostnadsbelopp * args.valutakurs)) + "\n")
-        outfile.write("#UPPGIFT 3" + str(counter) + "4 " + str(round(trade.vinst() * args.valutakurs)) + "\n")
-        outfile.write("#UPPGIFT 3" + str(counter) + "5 " + str(round(trade.forlust() * args.valutakurs)) + "\n")
+        outfile.write("#UPPGIFT 3" + str(counter) + "2 " + str(round(trade.forsaljsningspris * exchange_rate)) + "\n")
+        outfile.write("#UPPGIFT 3" + str(counter) + "3 " + str(round(trade.omkostnadsbelopp * exchange_rate)) + "\n")
+        outfile.write("#UPPGIFT 3" + str(counter) + "4 " + str(round(vinst_sek)) + "\n")
+        outfile.write("#UPPGIFT 3" + str(counter) + "5 " + str(round(forlust_sek)) + "\n")
         counter += 1
       outfile.write("#UPPGIFT 7014 " + str(chunk_counter) + "\n")
       outfile.write("#BLANKETTSLUT\n")
       chunk_counter += 1
     outfile.write("#FIL_SLUT\n")
+
+  print("K4 SRU files generated. Year: {0}, Rate: {1}".format(args.year, "yearly" if use_yearly_rate else "daily"))
+  print("Summa vinst SEK: " + swedish_float(total_vinst_sek))
+  print("Summa förlust SEK: " + swedish_float(total_forlust_sek))
+  print("Nettovinst/Nettoförlust SEK: " + swedish_float(total_vinst_sek - total_forlust_sek))
+
 
 
 def chunk_list(lst, size):

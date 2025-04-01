@@ -2,3 +2,5 @@
 *.SRU
 /.venv
 .hermit
+*.sh
+
