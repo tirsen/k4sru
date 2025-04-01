@@ -12,8 +12,6 @@ EXCLUDE_ORDER_TYPES = ["RS STC"]
 
 # It is allowed to use either the daily exchange rate or the yearly exchange rate,
 # as long as it is consistent for all trades.
-YEARLY_EXCHANGE_RATE_FILE = "usd_sek_yearly.xlsx"
-DAILY_EXCHANGE_RATE_FILE = "usd_sek_daily.xlsx"
 
 YEARLY_EXCHANGE_RATE_PARAM = "year"
 DAILY_EXCHANGE_RATE_PARAM = "day"
@@ -37,6 +35,10 @@ parser.add_argument('--rate', required=True,
                     help=f'{YEARLY_EXCHANGE_RATE_PARAM} or {DAILY_EXCHANGE_RATE_PARAM}')
 parser.add_argument('--trades', required=True,
                     help='affärer i xlsx')
+parser.add_argument('--yearly-rate-file',
+                    help='path to yearly exchange rate xlsx file')
+parser.add_argument('--daily-rate-file',
+                    help='path to daily exchange rate xlsx file')
 
 
 @dataclass
@@ -69,8 +71,8 @@ def parse_trades(file):
                   date=datetime.strptime(row[12].value, "%m/%d/%Y"))
 
 
-def read_yearly_exchange_rate(year):
-  workbook = openpyxl.load_workbook(YEARLY_EXCHANGE_RATE_FILE)
+def read_yearly_exchange_rate(year, yearly_rate_file):
+  workbook = openpyxl.load_workbook(yearly_rate_file)
   sheet = workbook.active
   for row in sheet.rows:
     if str(row[0].value) == str(year):
@@ -78,8 +80,8 @@ def read_yearly_exchange_rate(year):
 
   raise ValueError(f"No exchange rate found for year {year}")
 
-def read_daily_exchange_rate(date):
-  workbook = openpyxl.load_workbook(DAILY_EXCHANGE_RATE_FILE)
+def read_daily_exchange_rate(date, daily_rate_file):
+  workbook = openpyxl.load_workbook(daily_rate_file)
   sheet = workbook.active
   exchange_rates = {}
   for row in sheet.rows:
@@ -89,6 +91,10 @@ def read_daily_exchange_rate(date):
       continue
     exchange_rate = float(row[1].value)
     exchange_rates[exchange_date] = exchange_rate
+
+  if not exchange_rates:
+    raise ValueError(f"Error reading {daily_rate_file}: This appears to be a yearly exchange rate file. "
+                    f"Please use --rate year and --yearly-rate-file instead of --rate day and --daily-rate-file")
 
   if date in exchange_rates:
     return exchange_rates[date]
@@ -101,6 +107,13 @@ def read_daily_exchange_rate(date):
 def main():
   # https://www.skatteverket.se/foretag/etjansterochblanketter/blanketterbroschyrer/broschyrer/info/269.4.39f16f103821c58f680007305.html
   args = parser.parse_args()
+
+  # Validate exchange rate files based on rate type
+  if args.rate == YEARLY_EXCHANGE_RATE_PARAM and not args.yearly_rate_file:
+    parser.error("--yearly-rate-file is required when using yearly exchange rate")
+  if args.rate == DAILY_EXCHANGE_RATE_PARAM and not args.daily_rate_file:
+    parser.error("--daily-rate-file is required when using daily exchange rate")
+
   with open("INFO.SRU", mode="w") as outfile:
     outfile.write("#DATABESKRIVNING_START\n")
     outfile.write("#PRODUKT SRU\n")
@@ -133,9 +146,9 @@ def main():
           raise ValueError("Can only have %d sales per page" % SALES_PER_PAGE)
 
         if args.rate == YEARLY_EXCHANGE_RATE_PARAM:
-          exchange_rate = read_yearly_exchange_rate(args.year)
+          exchange_rate = read_yearly_exchange_rate(args.year, args.yearly_rate_file)
         elif args.rate == DAILY_EXCHANGE_RATE_PARAM:
-          exchange_rate = read_daily_exchange_rate(trade.date)
+          exchange_rate = read_daily_exchange_rate(trade.date, args.daily_rate_file)
         else:
           raise ValueError("Correct rate must be supplied")
 

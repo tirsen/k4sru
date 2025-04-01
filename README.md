@@ -1,7 +1,7 @@
 Genererar K4 SRU från XLSX nedladdad från Etrade:
 https://us.etrade.com/etx/sp/stockplan#/myAccount/gainsLosses
 
-Uppdatera `usd_sek_daily/yearly.xlsx` genom att exportera årlig/daglig USD/SEK som xlsx från
+Ladda ner årlig/daglig USD/SEK som xlsx från
 https://www.riksbank.se/sv/statistik/rantor-och-valutakurser/sok-rantor-och-valutakurser
 
 Detta projekt använder [Hermit](https://github.com/cashapp/hermit). Sätt upp så här:
