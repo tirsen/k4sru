@@ -20,6 +20,8 @@ python k4.py \
   --postnummer '...' \
   --postort '...' \
   --epost ... \
-  --rate 'year/day' \
-  --trades gains_loss_2023.xlsx
+  --trades gains_loss_2023.xlsx \
+  --yearly-rate-file yearly_rates.xlsx  # Använd detta för årliga kurser
+  # ELLER
+  --daily-rate-file daily_rates.xlsx    # Använd detta för dagliga kurser
 ```

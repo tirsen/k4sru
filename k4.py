@@ -13,9 +13,6 @@ EXCLUDE_ORDER_TYPES = ["RS STC"]
 # It is allowed to use either the daily exchange rate or the yearly exchange rate,
 # as long as it is consistent for all trades.
 
-YEARLY_EXCHANGE_RATE_PARAM = "year"
-DAILY_EXCHANGE_RATE_PARAM = "day"
-
 parser = argparse.ArgumentParser(prog="k4", description='Generate K4 SRU files.')
 parser.add_argument('--org-nummer', required=True,
                     help='org eller personnummer')
@@ -31,8 +28,6 @@ parser.add_argument('--epost', required=True,
                     help='epost')
 parser.add_argument('--year', required=True,
                     help='vilket räkenskapsår')
-parser.add_argument('--rate', required=True,
-                    help=f'{YEARLY_EXCHANGE_RATE_PARAM} or {DAILY_EXCHANGE_RATE_PARAM}')
 parser.add_argument('--trades', required=True,
                     help='affärer i xlsx')
 parser.add_argument('--yearly-rate-file',
@@ -94,7 +89,7 @@ def read_daily_exchange_rate(date, daily_rate_file):
 
   if not exchange_rates:
     raise ValueError(f"Error reading {daily_rate_file}: This appears to be a yearly exchange rate file. "
-                    f"Please use --rate year and --yearly-rate-file instead of --rate day and --daily-rate-file")
+                    f"Please use --yearly-rate-file instead of --daily-rate-file")
 
   if date in exchange_rates:
     return exchange_rates[date]
@@ -108,11 +103,13 @@ def main():
   # https://www.skatteverket.se/foretag/etjansterochblanketter/blanketterbroschyrer/broschyrer/info/269.4.39f16f103821c58f680007305.html
   args = parser.parse_args()
 
-  # Validate exchange rate files based on rate type
-  if args.rate == YEARLY_EXCHANGE_RATE_PARAM and not args.yearly_rate_file:
-    parser.error("--yearly-rate-file is required when using yearly exchange rate")
-  if args.rate == DAILY_EXCHANGE_RATE_PARAM and not args.daily_rate_file:
-    parser.error("--daily-rate-file is required when using daily exchange rate")
+  # Determine rate type based on provided files
+  if args.yearly_rate_file and args.daily_rate_file:
+    parser.error("Please provide either --yearly-rate-file or --daily-rate-file, not both")
+  if not args.yearly_rate_file and not args.daily_rate_file:
+    parser.error("Please provide either --yearly-rate-file or --daily-rate-file")
+
+  use_yearly_rate = bool(args.yearly_rate_file)
 
   with open("INFO.SRU", mode="w") as outfile:
     outfile.write("#DATABESKRIVNING_START\n")
@@ -145,12 +142,10 @@ def main():
         if counter - 31 > SALES_PER_PAGE:
           raise ValueError("Can only have %d sales per page" % SALES_PER_PAGE)
 
-        if args.rate == YEARLY_EXCHANGE_RATE_PARAM:
+        if use_yearly_rate:
           exchange_rate = read_yearly_exchange_rate(args.year, args.yearly_rate_file)
-        elif args.rate == DAILY_EXCHANGE_RATE_PARAM:
-          exchange_rate = read_daily_exchange_rate(trade.date, args.daily_rate_file)
         else:
-          raise ValueError("Correct rate must be supplied")
+          exchange_rate = read_daily_exchange_rate(trade.date, args.daily_rate_file)
 
         vinst_sek = trade.vinst() * exchange_rate
         forlust_sek = trade.forlust() * exchange_rate
@@ -169,7 +164,7 @@ def main():
       chunk_counter += 1
     outfile.write("#FIL_SLUT\n")
 
-  print("K4 SRU files generated. Year: {0}, Rate: {1}".format(args.year, args.rate))
+  print("K4 SRU files generated. Year: {0}, Rate: {1}".format(args.year, "yearly" if use_yearly_rate else "daily"))
   print("Summa vinst SEK: " + swedish_float(total_vinst_sek))
   print("Summa förlust SEK: " + swedish_float(total_forlust_sek))
   print("Nettovinst/Nettoförlust SEK: " + swedish_float(total_vinst_sek - total_forlust_sek))
