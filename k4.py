@@ -46,6 +46,7 @@ class Trade:
   gainloss: float
   ordertype: str
   date: datetime
+  ordinary_income: float = 0.0
 
   def vinst(self):
     return self.gainloss if self.gainloss > 0 else 0
@@ -64,7 +65,8 @@ def parse_trades(file):
                   forsaljsningspris=row[13].value,
                   gainloss=row[18].value,
                   ordertype=row[28].value if len(row) > 28 else None,
-                  date=datetime.strptime(row[12].value, "%m/%d/%Y"))
+                  date=datetime.strptime(row[12].value, "%m/%d/%Y"),
+                  ordinary_income=row[8].value if len(row) > 8 and row[8].value else 0.0)
 
 
 def fetch_exchange_rates(year: str) -> Dict[datetime, float]:
@@ -184,8 +186,9 @@ def main():
 
   now = datetime.now()
 
-  total_vinst_sek = 0;
-  total_forlust_sek = 0;
+  total_vinst_sek = 0
+  total_forlust_sek = 0
+  total_ordinary_income_sek = 0
 
   with open("BLANKETTER.SRU", mode="w") as outfile:
     chunk_counter = 1
@@ -205,8 +208,10 @@ def main():
 
         vinst_sek = trade.vinst() * exchange_rate
         forlust_sek = trade.forlust() * exchange_rate
+        ordinary_income_sek = trade.ordinary_income * exchange_rate
         total_vinst_sek += vinst_sek
         total_forlust_sek += forlust_sek
+        total_ordinary_income_sek += ordinary_income_sek
 
         outfile.write("#UPPGIFT 3" + str(counter) + "0 " + str(trade.antal) + "\n")
         outfile.write("#UPPGIFT 3" + str(counter) + "1 " + trade.beteckning + "\n")
@@ -224,6 +229,7 @@ def main():
   print("Summa vinst SEK: " + swedish_float(total_vinst_sek))
   print("Summa förlust SEK: " + swedish_float(total_forlust_sek))
   print("Nettovinst/Nettoförlust SEK: " + swedish_float(total_vinst_sek - total_forlust_sek))
+  print("Summa ordinarie inkomst SEK: " + swedish_float(total_ordinary_income_sek))
 
 
 
@@ -232,7 +238,9 @@ def chunk_list(lst, size):
 
 
 def swedish_float(f):
-  return str(f).replace('.', ',')
+  # Format with thousands separators and Swedish decimal comma
+  formatted = f"{f:,.2f}".replace(',', ' ').replace('.', ',')
+  return formatted
 
 
 if __name__ == "__main__":
