@@ -1,0 +1,9 @@
+[project]
+name = "k4sru"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "openpyxl>=3.1.5",
+    "requests>=2.32.5",
+]

@@ -1,10 +1,9 @@
 Genererar K4 SRU från XLSX nedladdad från Etrade:
 https://us.etrade.com/etx/sp/stockplan#/myAccount/gainsLosses
 
-Detta projekt använder [Hermit](https://github.com/cashapp/hermit). Sätt upp så här:
+Detta projekt använder [Hermit](https://github.com/cashapp/hermit) och [uv](https://github.com/astral-sh/uv). Sätt upp så här:
 ```
-source .hermit/bin/activate
-pip install -r requirements.txt
+bin/hermit install
 ```
 
 Kör så här:
