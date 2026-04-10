@@ -59,7 +59,7 @@ def parse_trades(file):
   trades = openpyxl.load_workbook(file)
   for row in trades.active.rows:
     if row[0].value == 'Sell':
-      yield Trade(antal=row[3].value,
+      yield Trade(antal=round(row[3].value),
                   beteckning=row[1].value,
                   omkostnadsbelopp=row[10].value,
                   forsaljsningspris=row[13].value,
